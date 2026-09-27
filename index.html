@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Earthquakes Live Demo - Lattice Grid</title>
+        <script>
+            // Where the library comes from. `false` loads the published release from the CDN;
+            // `true` loads a local build from vendor/ instead (not part of this repository).
+            const LOCAL = false;
+            const LIB = LOCAL ? 'vendor/' : 'https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1.73.0/';
+            document.write('<link rel="stylesheet" href="' + LIB + 'lattice-grid.min.css">');
+            for (const file of ['lattice-grid.min.js', 'modules/layout.min.js',
+                'modules/charts.min.js', 'modules/kpi.min.js', 'modules/geometry.min.js',
+                'modules/chart-markermap.min.js', 'modules/geo-world-110m.min.js']) {
+                document.write('<script src="' + LIB + file + '"><' + '/script>');
+            }
+        </script>
+        <style>
+            body { padding: 0; margin: 0; background: #14181c; color: #e4e9ee;
+                   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+            [data-lat-layout-body] { overflow: hidden; background: #14181c; color: #e4e9ee; }
+            .panel { display: flex; flex-direction: column; height: 100%; box-sizing: border-box; padding: 4px 8px 2px; }
+            .panel__head { flex: 0 0 auto; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;
+                           color: #99a4ae; padding: 0 2px 3px; }
+            .panel__body { flex: 1 1 auto; min-height: 0; position: relative; }
+            #attribution { position: fixed; bottom: 4px; left: 8px; font-size: 10px; color: #6b7680; z-index: 5; }
+            #attribution a { color: #8fb4e3; }
+        </style>
+        <script src="data.js"></script>
+    </head>
+    <body data-theme="dark">
+        <div id="container" style="height: 100vh; margin: 0; padding: 0"></div>
+        <div id="attribution">Data: <a href="https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson" target="_blank" rel="noopener">USGS Earthquake Hazards Program, all_month feed</a> (US Government work, public domain) &middot; refreshed every 5 minutes</div>
+        <script>
+            // Bound to toclocoinc.github.io; does nothing anywhere else. localhost never needs a key.
+            LatticeGrid.setLicence('LG1.eyJ2IjoxLCJwIjoibGF0dGljZS1ncmlkIiwidCI6IlRPQ0xPQ08gSW5jIC0gcHVibGljIGRlbW9zIiwiZSI6IjIwMzAtMDEtMDEiLCJkIjpbInRvY2xvY29pbmMuZ2l0aHViLmlvIl19.9De42ua3aCGpiMB6EVRP7Tv-upUlDI-0T07rlSPzvCrsqg8t4YJi7SRnStEpAg48uzmcG7il1fR_TfwkUE7iCA');
+        </script>
+        <script>
+            const WINDOWS = [
+                { id: 'grid', title: 'Events', xPos: 1, yPos: 1, xSize: 8, ySize: 20, chrome: false, movable: true, resizable: true },
+                { id: 'map', title: 'Marker map', xPos: 9, yPos: 1, xSize: 12, ySize: 13, chrome: false, movable: true, resizable: true },
+                { id: 'bands', title: 'Magnitude bands', xPos: 9, yPos: 14, xSize: 6, ySize: 7, chrome: false, movable: true, resizable: true },
+                { id: 'kpis', title: 'KPIs', xPos: 15, yPos: 14, xSize: 6, ySize: 7, chrome: false, movable: true, resizable: true },
+                { id: 'strip', title: 'Strongest', xPos: 21, yPos: 1, xSize: 4, ySize: 13, chrome: false, movable: true, resizable: true },
+            ];
+            const body = (id) => document.getElementById(id + '-body');
+            const panel = (id, heading) => {
+                const el = body(id);
+                el.className = 'panel';
+                el.innerHTML = '<div class="panel__head">' + heading + '</div><div class="panel__body"></div>';
+                return el.lastChild;
+            };
+
+            LatticeGridLayout.createLayout(document.getElementById('container'), {
+                columns: 25, rows: 21, gap: 6, padding: 6, overflowX: 'static', overflowY: 'static', windows: WINDOWS,
+            });
+
+            // The formatting rule the marker map reads for colour, and the
+            // magnitude type column both the grid and the map read for size.
+            const MAG_RULES = [
+                { id: 'm1', when: { op: 'lt', value: 2 }, style: { background: '#2e7d32' }, label: '< M2' },
+                { id: 'm2', when: { op: 'lt', value: 4 }, style: { background: '#c8a415' }, label: 'M2-4' },
+                { id: 'm3', when: { op: 'lt', value: 6 }, style: { background: '#e06a1c' }, label: 'M4-6' },
+                { id: 'm4', when: { op: 'gte', value: 6 }, style: { background: '#c0392b' }, label: 'M6+' },
+            ];
+
+            const grid = LatticeGrid.createGrid(panel('grid', 'Events'), {
+                theme: 'dark',
+                rowKey: 'id',
+                source: quakeSource(),
+                sort: [{ col: 'time', dir: 'desc' }],
+                formatting: { mag: MAG_RULES },
+                columns: [
+                    // `id` is the rowKey; also declared as a column (hidden) so
+                    // the count tiles and the band bar below can reduce over it
+                    // — a `field`/`col` naming no column on the grid reports "no
+                    // data" or draws nothing rather than a number (found in
+                    // verification, F-GEODEMO-A).
+                    { field: 'id', title: 'ID', layout: { hidden: true } },
+                    { field: 'time', title: 'Time', type: 'timestamp', format: { pattern: 'yyyy-MM-dd HH:mm', timeZone: 'UTC' } },
+                    { field: 'place', title: 'Place' },
+                    { field: 'mag', title: 'Mag', type: 'number', format: { decimals: 1 } },
+                    { field: 'depth', title: 'Depth (km)', type: 'number', format: { decimals: 1 } },
+                    { field: 'band', title: 'Band', layout: { width: 70 } },
+                    // Present so the geometry type normalises it for the map; not shown.
+                    { field: 'geometry', title: 'Location', type: 'geometry', layout: { hidden: true } },
+                ],
+            });
+
+            // Marker map: size/colour by magnitude, placed from the geometry
+            // column. `viewportFilter: true` (GEO-4) writes the box now on
+            // screen as a `withinBbox` condition on `grid.filters` (evaluated
+            // in memory here — there is no pushdown source in this demo), so
+            // the grid, the band bar and the KPI tiles narrow with the map.
+            // No zoom toolbar on a map chart yet (F-GEO4-B): pan by drag,
+            // reset by double-clicking the map or pressing "0" while it has
+            // focus — the chart's own reset, not a page button. `labels: false`
+            // (round 2): every one of 10,566+ events named beside its dot is
+            // unreadable at world scale; `label` still names the tooltip's
+            // identity column, read on hover. `createUrlSource` for a JSON feed
+            // reads the whole body (no paging), so every event the grid holds
+            // was already on the map before this change — checked below.
+            window.__map = LatticeGrid.createChart({
+                grid, container: panel('map', 'Marker map · sized/coloured by magnitude · drag to pan, double-click or 0 to reset'),
+                type: 'markermap', geometry: 'geometry', label: 'place', value: 'mag',
+                shapes: LatticeGridGeoWorld110m.pack,
+                viewportFilter: true, labels: false,
+            });
+
+            // Magnitude-band bar: a plain in-memory grid, no pushdown here.
+            window.__bandsChart = LatticeGrid.createChart({
+                grid, container: panel('bands', 'Events by magnitude band'),
+                type: 'bar', x: 'band', y: { col: 'id', fn: 'count' },
+            });
+
+            // KPI tiles, following the grid live: events in view, strongest,
+            // and events in the last hour.
+            const kpi = window.__kpi = LatticeGridKPI.createKPI(panel('kpis', 'Live'), {
+                grid, rowKey: 'id', columns: 1,
+                fields: ['time'],   // the "last hour" tile's filter reads it, not its own field
+                tiles: [
+                    { id: 'events', label: 'Events in view', aggregation: 'count', field: 'id' },
+                    { id: 'strongest', label: 'Strongest', aggregation: 'max', field: 'mag', format: { decimals: 1 } },
+                    {
+                        id: 'lasthour', label: 'Last hour', aggregation: 'count', field: 'id',
+                        filter: (r) => Date.now() - r.time < 3600000,
+                    },
+                ],
+            });
+            // The feed's rows land asynchronously after this panel was built,
+            // and a page of rows arriving is deliberately not one of the
+            // changes a grid-bound KPI panel re-reads on its own — so refresh
+            // once the first paint settles. The "last hour" tile also depends
+            // on the clock, not just the feed; re-read every minute so it
+            // does not go stale between the 5-minute polls.
+            requestAnimationFrame(() => requestAnimationFrame(() => kpi.refresh()));
+            setInterval(() => kpi.refresh(), 60000);
+
+            // The strongest event of the loaded set, as a small read-out.
+            const strip = panel('strip', 'Strongest event');
+            const paintStrongest = () => {
+                let best = null;
+                for (let i = 0; i < grid.rows.count(); i += 1) {
+                    const r = grid.rows.get(i).data;
+                    if (!best || (r.mag || -Infinity) > best.mag) best = r;
+                }
+                strip.innerHTML = best
+                    ? '<div style="font-size:28px;font-weight:700">M' + best.mag.toFixed(1) + '</div>'
+                        + '<div style="color:#99a4ae;margin-top:6px">' + best.place + '</div>'
+                    : '<div style="color:#99a4ae">No data yet</div>';
+            };
+            grid.on('model:changed', paintStrongest);
+            paintStrongest();
+            window.__grid = grid;
+        </script>
+    </body>
+</html>
