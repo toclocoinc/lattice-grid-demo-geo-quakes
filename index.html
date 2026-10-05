@@ -8,7 +8,7 @@
             // Where the library comes from. `false` loads the published release from the CDN;
             // `true` loads a local build from vendor/ instead (not part of this repository).
             const LOCAL = false;
-            const LIB = LOCAL ? 'vendor/' : 'https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1.86.4/';
+            const LIB = LOCAL ? 'vendor/' : 'https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1.86.7/';
             document.write('<link rel="stylesheet" href="' + LIB + 'lattice-grid.min.css">');
             for (const file of ['lattice-grid.min.js', 'modules/layout.min.js',
                 'modules/charts.min.js', 'modules/kpi.min.js', 'modules/geometry.min.js',
@@ -31,7 +31,7 @@
     </head>
     <body>
         <div id="container" style="height: 100vh; margin: 0; padding: 0"></div>
-        <div id="attribution">Data: <a href="https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson" target="_blank" rel="noopener">USGS Earthquake Hazards Program, all_month feed</a> (US Government work, public domain) &middot; refreshed every 5 minutes</div>
+        <div id="attribution">Data: <a href="https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson" target="_blank" rel="noopener">USGS Earthquake Hazards Program, all_month feed</a> (US Government work, public domain) &middot; refreshed every 5 minutes &middot; Built with <a href="https://www.latticegrid.dev/operational-software/">Lattice Grid</a></div>
         <script>
             // Bound to toclocoinc.github.io; does nothing anywhere else. localhost never needs a key.
             LatticeGrid.setLicence('LG1.eyJ2IjoxLCJwIjoibGF0dGljZS1ncmlkIiwidCI6IlRPQ0xPQ08gSW5jIC0gcHVibGljIGRlbW9zIiwiZSI6IjIwMzAtMDEtMDEiLCJkIjpbInRvY2xvY29pbmMuZ2l0aHViLmlvIl19.9De42ua3aCGpiMB6EVRP7Tv-upUlDI-0T07rlSPzvCrsqg8t4YJi7SRnStEpAg48uzmcG7il1fR_TfwkUE7iCA');
